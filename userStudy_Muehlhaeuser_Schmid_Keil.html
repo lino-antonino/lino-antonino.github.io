@@ -1,0 +1,575 @@
+<html>
+
+<head>
+    <title>Human Capabilities - Reaction test</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+
+        #stimulus {
+            height: 40px;
+        }
+
+        #square {
+            width: 50px;
+            height: 50px;
+            background-color: red;
+            position: absolute;
+            opacity: 0;
+        }
+
+        #squareB2 {
+            width: 100px;
+            height: 100px;
+            background-color: red;
+            position: absolute;
+            opacity: 0;
+        }
+
+        #triangle {
+            width: 0;
+            height: 0;
+            border-left: 50px solid transparent;
+            border-right: 50px solid transparent;
+            border-bottom: 100px solid red;
+            position: absolute;
+            opacity: 0;
+        }
+
+        #imageContainer img {
+            max-width: 500;
+            max-height: 500;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 id="title">User Study</h1>
+    <h2 id="instruction">Press 1 for B1 2 for B2 and 3 for B3.</h2>
+    <div id="stimulus"></div>
+    <p id="time"></p>
+    <p id="count"></p>
+    <p id="mean"></p>
+    <p id="meanPurple"></p>
+    <p id="meanOrange"></p>
+    <p id="sd"></p>
+    <p id="sdPurple"></p>
+    <p id="sdOrange"></p>
+    <p id="correlation"></p>
+    <p id="mistakes"></p>
+    <p id="mistakesPurple"></p>
+    <p id="mistakesOrange"></p>
+    <p id="germanMistakes"></p>
+    <p id="chineseMistakes"></p>
+    <p id="mexicanMistakes"></p>
+
+    <div id="square"></div>
+    <div id="triangle" class="triangle"></div>
+    <div id="squareB2"></div>
+    <div id="imageContainer"><img id="currentImage" src=""></div>
+
+    <script>
+
+        // if true, the experiment is currently active
+        let experimentActive = false;
+
+        // if true, the stimulus is currently visible and the user should press space
+        let stimulusIsVisible = false;
+
+        // time at which the stimulus last appeared (in milliseconds, see Date.now())
+        let stimulusTimestamp;
+
+        // ID of the timeout that is scheduled to make the stimulus appear.
+        // Used to cancel tests when the experiment ends.
+        let testStimulusTimeout;
+
+        // recorded reaction times in milliseconds
+        let times = [];
+
+        let experimentConducted = 0;
+        let mistakes = 0;
+        let mistakesOrange = 0;
+        let mistakesPurple = 0;
+
+        // DOM elements
+        let timeElement = document.getElementById('time');
+        let countElement = document.getElementById('count');
+        let meanElement = document.getElementById('mean');
+        let stdDevElement = document.getElementById('sd');
+        let correlationElement = document.getElementById('correlation');
+        let instructionElement = document.getElementById('instruction');
+        let stimulusElement = document.getElementById('stimulus');
+        let mistakesElement = document.getElementById('mistakes');
+        let germanMistakesElement = document.getElementById('germanMistakes');
+        let chineseMistakesElement = document.getElementById('chineseMistakes');
+        let mexicanMistakesElement = document.getElementById('mexicanMistakes');
+
+        let meanPurpleElement = document.getElementById('meanPurple');
+        let meanOrangeElement = document.getElementById('meanOrange');
+        let stdDevPurpleElement = document.getElementById('sdPurple');
+        let stdDevOrangeElement = document.getElementById('sdOrange');
+        let mistakesPurpleElement = document.getElementById('mistakesPurple');
+        let mistakesOrangeElement = document.getElementById('mistakesOrange');
+
+        let maxRounds = 30;
+        let curRound = 0;
+
+        //Aufagbe B1:
+        let squareDistancsFromCenter = []
+        let square = document.getElementById("square");
+
+        let spaceHit = false;
+
+        function showRandomSquare() {
+            spaceHit = false
+            square.style.opacity = 0;
+
+            let x = Math.random() * (window.innerWidth - 50) + 25;
+            let y = Math.random() * (window.innerHeight - 50) + 25;
+
+            let centerX = window.innerWidth / 2;
+            let centerY = window.innerHeight / 2;
+
+            let xDist = Math.abs(centerX - x);
+            let yDist = Math.abs(centerY - y);
+
+            let dist = Math.sqrt(xDist * xDist + yDist * yDist);
+
+            squareDistancsFromCenter.push(dist);
+
+            square.style.left = x + "px";
+            square.style.top = y + "px";
+
+            let opacity = 0;
+            let interval;
+
+            function changeOpacity() {
+                if (!spaceHit) {
+                    opacity += 0.01;
+                    square.style.opacity = opacity;
+                } else {
+                    square.style.opacity = 0;
+                    clearInterval(interval);
+                }
+            }
+
+            interval = setInterval(changeOpacity, 40);
+
+        }
+
+        function calculateCorrelation() {
+            meanDist = getMean(squareDistancsFromCenter);
+            meanTime = getMean(times);
+
+            let cov = 0;
+            for (let i = 0; i < times.length; i++) {
+                cov += (times[i] - meanTime) * (squareDistancsFromCenter[i] - meanDist);
+            }
+            cov /= times.length;
+
+            stdDevDist = getStandardDeviation(squareDistancsFromCenter);
+            stdDevTimes = getStandardDeviation(times);
+
+            cov /= (stdDevDist * stdDevTimes);
+
+            return cov;
+        }
+
+        //----------------------------------------------------------
+
+        // Aufgabe B2:
+
+        let orange = []
+        let purple = []
+        let orangeVisible = false;
+
+        // Set timeout duration (in milliseconds)
+        const timeoutDuration = 6000; // 6 seconds
+        let timeoutID = null;
+
+        let triangleVisible = false;
+        let squareB2Visible = false;
+
+        let triangle = document.getElementById('triangle');
+        let squareB2 = document.getElementById('squareB2');
+
+        function showTriangleOrSquare() {
+            changePosition();
+            changeSize();
+            changeColor(false);
+        }
+
+        function changePosition() {
+            let xTriangle = Math.random() * (window.innerWidth - 300) + 150;
+            let yTriangle = Math.random() * (window.innerHeight - 300) + 150;
+
+            triangle.style.left = xTriangle + 'px';
+            triangle.style.top = yTriangle + 'px';
+
+            let xSquare = Math.random() * (window.innerWidth - 300) + 150;
+            let ySquare = Math.random() * (window.innerHeight - 300) + 150;
+
+            squareB2.style.left = xSquare + 'px';
+            squareB2.style.top = ySquare + 'px';
+
+        }
+
+        function changeColor(transparent) {
+            if (transparent) {
+                triangle.style.opacity = 0;
+                squareB2.style.opacity = 0;
+            } else {
+                if (Math.random() < 0.5) {
+                    triangle.style.borderBottomColor = 'purple';
+                    squareB2.style.backgroundColor = 'purple';
+                    orangeVisible = false;
+                } else {
+                    triangle.style.borderBottomColor = 'orange';
+                    squareB2.style.backgroundColor = 'orange';
+                    orangeVisible = true;
+                }
+                if (Math.random() < 0.5) {
+                    squareB2Visible = true;
+                    squareB2.style.opacity = 1;
+                } else {
+                    triangleVisible = true;
+                    triangle.style.opacity = 1;
+                    timeoutID = setTimeout(startTestTrial, timeoutDuration);
+                }
+            }
+        }
+
+        function changeSize() {
+            let sideLength = Math.random() * 200 + 100;
+            let borderLeftAndRight = sideLength / 2;
+            let borderBottom = (Math.sqrt(3) / 2) * sideLength;
+
+            triangle.style.borderLeftWidth = borderLeftAndRight;
+            triangle.style.borderRightWidth = borderLeftAndRight;
+            triangle.style.borderBottomWidth = borderBottom;
+
+            let length = Math.random() * 200 + 100;
+            squareB2.style.width = length + 'px';
+            squareB2.style.height = length + 'px';
+        }
+
+        //----------------------------------------------------------
+
+        //Aufgabe B3:
+
+        let germanMistakes = 0;
+        let chineseMistakes = 0;
+        let mexicanMistakes = 0;
+
+        const images = [];
+
+
+
+        // Function to shuffle the array randomly
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // Function to show the next image in the shuffled array
+        let currentIndex = 0;
+
+        function showNextImage() {
+            stimulusIsVisible = true;
+            currentIndex = (currentIndex) % images.length;
+            showImage(images[currentIndex]);
+        }
+
+        // Function to display the image
+        let imageElement = document.getElementById('currentImage');
+
+        function showImage(image) {
+            imageElement.src = image;
+            currentIndex += 1;
+        }
+
+        //----------------------------------------------------------
+
+
+        function getMean(data) {
+            let sum = 0;
+            for (let value of data) sum += value;
+            return sum / data.length;
+        }
+
+        function getStandardDeviation(data) {
+            let mean = getMean(data);
+            let squareSum = 0;
+            for (let value of data) squareSum += (value - mean) ** 2;
+            return Math.sqrt(squareSum / data.length);
+        }
+
+        function clearResults() {
+            timeElement.textContent = '';
+            countElement.textContent = '';
+            meanElement.textContent = '';
+            stdDevElement.textContent = '';
+            correlationElement.textContent = '';
+            mistakesElement.textContent = '';
+            germanMistakesElement.textContent = '';
+            chineseMistakesElement.textContent = '';
+            mexicanMistakesElement.textContent = '';
+            meanPurpleElement.textContent = '';
+            meanOrangeElement.textContent = '';
+            stdDevPurpleElement.textContent = '';
+            stdDevOrangeElement.textContent = '';
+            mistakesPurpleElement.textContent = '';
+            mistakesOrangeElement.textContent = '';
+        }
+
+        function showResults() {
+            let meanDeltaTime = getMean(times);
+            let stdDev = getStandardDeviation(times);
+
+            countElement.textContent = 'Count: ' + times.length;
+            meanElement.textContent = 'Mean: ' + Math.round(meanDeltaTime) + ' ms';
+            stdDevElement.textContent = 'SD: ' + Math.round(stdDev) + ' ms';
+            if (experimentConducted == 1) {
+                let mistakes1Rate = Math.round((mistakes / (times.length + mistakes) * 10000)) / 100;
+                correlationElement.textContent = 'Correlation: ' + calculateCorrelation();
+                mistakesElement.textContent = 'Mistakes Rate: ' + mistakes1Rate + ' %';
+            } else if( experimentConducted == 2) {
+                //calculate
+                let mistakes2Rate = Math.round((mistakes / (times.length + mistakes) * 10000)) / 100;
+                let mistakesRatePurple = Math.round((mistakesPurple / (purple.length + mistakesPurple)) * 10000) / 100;
+                let mistakesRateOrange = Math.round((mistakesOrange / (orange.length + mistakesOrange)) * 10000) / 100;
+
+                //added information to show
+                meanPurpleElement.textContent = 'Mean purple: ' + Math.round(getMean(purple)) + 'ms';
+                meanOrangeElement.textContent = 'Mean orange: ' + Math.round(getMean(orange)) + 'ms';
+                stdDevPurpleElement.textContent = 'SD Purple: ' + Math.round(getStandardDeviation(purple)) + ' ms';
+                stdDevOrangeElement.textContent = 'SD Orange: ' + Math.round(getStandardDeviation(orange)) + ' ms';
+                mistakesElement.textContent = 'Mistakes Rate: ' + mistakes2Rate + ' %';
+                mistakesPurpleElement.textContent = 'Mistakes rate purple: ' + mistakesRatePurple + ' %';
+                mistakesOrangeElement.textContent = 'Mistakes rate orange: ' + mistakesRateOrange + ' %';
+            } else if (experimentConducted == 3) {
+                const dishesPerCountry = 10;
+                mistakesRateGerman = Math.round((germanMistakes / dishesPerCountry) * 10000) / 100;
+                mistakesRateChinese = Math.round((chineseMistakes / dishesPerCountry) * 10000) / 100;
+                mistakesRateMexican = Math.round((mexicanMistakes / dishesPerCountry) * 10000) / 100;
+
+                mistakesElement.textContent = '';
+                germanMistakesElement.textContent = 'German mistakes rate: ' + mistakesRateGerman + ' %';
+                chineseMistakesElement.textContent = 'Chinese mistakes rate: ' + mistakesRateChinese + ' %';
+                mexicanMistakesElement.textContent = 'Mexican mistakes rate: ' + mistakesRateMexican + ' %';
+            }
+        }
+
+        function setStimulusColor(newColor) {
+            stimulusElement.style.backgroundColor = newColor;
+        }
+
+        function startTestTrial() {
+            curRound += 1;
+            if(curRound > maxRounds) {
+                stopExperiment();
+                return;
+            }
+            // reset the stimulus
+            stimulusIsVisible = false;
+            changeColor(true);
+            triangleVisible = false;
+            squareB2Visible = false;
+            if (experimentConducted !== 2) {
+                // schedule the stimulus to appear after a random amount of time
+                let timeToWaitInSeconds = Math.random() * 4 + 2; // 2 - 6s
+                testStimulusTimeout = setTimeout(showStimulus, timeToWaitInSeconds * 1000);
+            } else
+                showStimulus();
+        }
+
+        function showStimulus() {
+            //setStimulusColor('red');
+            stimulusIsVisible = true;
+            stimulusTimestamp = Date.now();
+            if (experimentConducted == 1) {
+                showRandomSquare();
+            } else if (experimentConducted == 2) {
+                showTriangleOrSquare();
+            } else if (experimentConducted == 3) {
+                if (currentIndex == images.length) {
+                    stopExperiment();
+                } else {
+                    showNextImage();
+                }
+            }
+        }
+
+        function recordStimulusReactionTime() {
+            let deltaTime = Date.now() - stimulusTimestamp;
+            times.push(deltaTime);
+            timeElement.textContent = deltaTime + ' ms';
+        }
+
+        function startExperiment() {
+            clearResults(); // clear results of any previous tests
+            if (experimentConducted == 1) {
+                instructionElement.textContent = "Press a to show results. Press space when square is visible.";
+            } else if (experimentConducted == 2) {
+                instructionElement.textContent = "Press a to show results. Press space when square is visible. Press s when triangle is visible.";
+            } else if (experimentConducted == 3) {
+                instructionElement.textContent = "Press d for german, f for chinese, g for mexican.";
+                for (let i = 0; i < 30; i++) {
+                    images.push("images/image" + i + ".jpg");
+                }
+                shuffleArray(images);
+            }
+            // reset data and start tests
+            times = [];
+            orange = []
+            purple = []
+            curRound = 0;
+            mistakes = 0;
+            mistakesOrange = 0;
+            mistakesPurple = 0;
+            mexicanMistakes = 0;
+            germanMistakes = 0;
+            chineseMistakes = 0;
+            experimentActive = true;
+            startTestTrial();
+        }
+
+        function stopExperiment() {
+            // cancel any ongoing tests
+            clearTimeout(testStimulusTimeout);
+            clearTimeout(timeoutID);
+            stimulusIsVisible = false;
+            experimentActive = false;
+            changeColor(true);
+
+            // reset instruction and show results
+            instruction.textContent = "Press \'1\' for B1 \'2\' for B2 and \'3\' for B3.";
+            showResults();
+        }
+
+        window.addEventListener('keydown', (event) => {
+            if (event.key === ' ') {
+                spaceHit = true;
+
+                if (experimentConducted == 1 && !stimulusIsVisible) {
+                    mistakes += 1;
+                }
+
+                if (experimentConducted == 1 && stimulusIsVisible) {
+                    // record reaction time
+                    recordStimulusReactionTime();
+                    countElement.textContent = times.length;
+                    // start next trial
+                    startTestTrial();
+                }
+
+                if (experimentConducted == 2 && squareB2Visible) {
+                    let deltaTime = Date.now() - stimulusTimestamp;
+
+                    if (orangeVisible) {
+                        orange.push(deltaTime);
+                    } else {
+                        purple.push(deltaTime);
+                    }
+                    recordStimulusReactionTime();
+                    countElement.textContent = times.length;
+                    startTestTrial();
+                }
+
+                if (experimentConducted == 2 && triangleVisible) {
+                    mistakes += 1;
+                    if (orangeVisible) {
+                        mistakesOrange += 1;
+                    } else {
+                        mistakesPurple += 1;
+                    }
+                }
+
+            } else if (event.key === 'a') {
+                if (experimentActive) {
+                    // stop the experiment and show results
+                    stopExperiment();
+                    mistakes = 0;
+                    mistakesPurple = 0;
+                    mistakesOrange = 0;
+                }
+            } else if (event.key === '1') {
+                if (!experimentActive) {
+                    // start the experiment if it wasn't active
+                    experimentConducted = 1;
+                    startExperiment();
+                }
+            } else if (event.key === '2') {
+                if (!experimentActive) {
+                    // start the experiment if it wasn't active
+                    experimentConducted = 2;
+                    startExperiment();
+                }
+            } else if (event.key === 's' && experimentConducted == 2 && triangleVisible) {
+                instructionElement.textContent = "Press a to show results. Press space when square is visible. Press s when triangle is visible.";
+                changeColor(true);
+                clearTimeout(timeoutID);
+                startTestTrial();
+            } else if (event.key === '3') {
+                currentIndex = 0;
+                experimentConducted = 3;
+                startExperiment();
+            } else if (event.key === 'd' && stimulusIsVisible) {
+                imageElement.src = '';
+                recordStimulusReactionTime();
+                countElement.textContent = times.length;
+                if (currentIndex == images.length) {
+                    stopExperiment();
+                    return;
+                }
+                let str = images[currentIndex - 1];
+                let number2 = parseInt(str.charAt(13), 10);
+                let isNan = isNaN(number2);
+                if (!isNan) {
+                    console.log("german mistake");
+                    germanMistakes += 1;
+                }
+                startTestTrial();
+            } else if (event.key === 'f' && stimulusIsVisible) {
+                imageElement.src = '';
+                recordStimulusReactionTime();
+                countElement.textContent = times.length;
+                if (currentIndex == images.length) {
+                    stopExperiment();
+                    return;
+                }
+                let str = images[currentIndex - 1];
+                let number1 = parseInt(str.charAt(12), 10);
+                let number2 = parseInt(str.charAt(13), 10);
+                let isNan = isNaN(number2);
+                if (isNan || (!isNan && number1 != 1)) {
+                    console.log("chinese mistake");
+                    chineseMistakes += 1;
+                }
+                startTestTrial();
+            } else if (event.key === 'g' && stimulusIsVisible) {
+                imageElement.src = '';
+                recordStimulusReactionTime();
+                countElement.textContent = times.length;
+                if (currentIndex == images.length) {
+                    stopExperiment();
+                    return;
+                }
+                let str = images[currentIndex - 1];
+                let number1 = parseInt(str.charAt(12), 10);
+                let number2 = parseInt(str.charAt(13), 10);
+                let isNan = isNaN(number2);
+                if (isNan || (!isNan && number1 != 2)) {
+                    console.log("mexican mistake");
+                    mexicanMistakes += 1;
+                }
+                startTestTrial();
+            }
+        });
+    </script>
+</body>
+
+</html>
